@@ -80,6 +80,40 @@ _CIC2018_RENAME = {
 # 2018-only columns with no 2017 equivalent — drop them
 _DROP_2018 = {'Protocol', '__drop__'}
 
+# CIC-IDS2017 label strings contain a UTF-8 en-dash (–) that gets garbled when
+# the file is read as latin-1.  Fix the three Web Attack labels in place.
+_CIC2017_LABEL_FIX = {
+    'Web Attack \x96 Brute Force':   'Web Attack - Brute Force',
+    'Web Attack \x96 XSS':           'Web Attack - XSS',
+    'Web Attack \x96 Sql Injection':  'Web Attack - Sql Injection',
+    # latin-1 read of UTF-8 replacement character sequences
+    'Web Attack ï¿½ Brute Force':    'Web Attack - Brute Force',
+    'Web Attack ï¿½ XSS':            'Web Attack - XSS',
+    'Web Attack ï¿½ Sql Injection':   'Web Attack - Sql Injection',
+}
+
+# CSE-CIC-IDS2018 integer label map.
+# The pre-processed file encodes attack types as integers; this maps them back
+# to human-readable strings matching the UNB dataset documentation.
+# ⚠️  Verify this mapping against your specific pre-processed file.
+CIC2018_LABEL_MAP = {
+    1:  'BENIGN',
+    2:  'Bot',
+    3:  'Brute Force - Web',
+    4:  'Brute Force - XSS',
+    5:  'DDoS - HOIC',
+    6:  'DDoS - LOIC-UDP',
+    7:  'DDoS - LOIC-HTTP',
+    8:  'DoS - GoldenEye',
+    9:  'DoS - Hulk',
+    10: 'DoS - SlowHTTPTest',
+    11: 'DoS - Slowloris',
+    12: 'FTP-BruteForce',
+    13: 'Infilteration',
+    14: 'SQL Injection',
+    15: 'SSH-BruteForce',
+}
+
 
 def load_cic2017(data_dir: str, subsample_frac: float = 0.10, seed: int = SEED) -> pd.DataFrame:
     """Load all CIC-IDS2017 per-day CSVs, keeping ~subsample_frac of rows."""
@@ -89,6 +123,7 @@ def load_cic2017(data_dir: str, subsample_frac: float = 0.10, seed: int = SEED) 
         raise FileNotFoundError(f"No CSV files found in {csv_dir}")
     df = pd.concat(frames, ignore_index=True)
     df = _clean(df, drop_cols=_DROP_2017)
+    df[LABEL_COL] = df[LABEL_COL].replace(_CIC2017_LABEL_FIX)
     print(f"CIC-IDS2017 loaded: {df.shape[0]:,} rows × {df.shape[1]} cols")
     return df
 
@@ -104,6 +139,12 @@ def load_cic2018(data_dir: str, subsample_frac: float = 0.10, seed: int = SEED) 
     df.columns = df.columns.str.strip()
     df = df.rename(columns=_CIC2018_RENAME)
     df = _clean(df, drop_cols=_DROP_2018)
+    # Map numeric labels → human-readable strings if the column is integer-encoded
+    if pd.api.types.is_integer_dtype(df[LABEL_COL]):
+        unmapped = set(df[LABEL_COL].unique()) - set(CIC2018_LABEL_MAP.keys())
+        if unmapped:
+            print(f"  ⚠️  Unmapped 2018 label integers: {unmapped} — add them to CIC2018_LABEL_MAP")
+        df[LABEL_COL] = df[LABEL_COL].map(CIC2018_LABEL_MAP).fillna(df[LABEL_COL].astype(str))
     print(f"CSE-CIC-IDS2018 loaded: {df.shape[0]:,} rows × {df.shape[1]} cols")
     return df
 

@@ -47,12 +47,10 @@ def make_model(name: str, params: dict = None, seed: int = SEED):
         'SVM': SVC(kernel='rbf', random_state=seed, probability=True),
         'NB':  GaussianNB(),
         'ANN': MLPClassifier(
-                   random_state=seed, max_iter=1000,
-                   early_stopping=True, n_iter_no_change=20,
+                   random_state=seed, max_iter=500,
                ),
         'DNN': MLPClassifier(
-                   random_state=seed, max_iter=1000,
-                   early_stopping=True, n_iter_no_change=20,
+                   random_state=seed, max_iter=500,
                ),
     }
     if name not in _base:

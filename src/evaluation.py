@@ -86,6 +86,13 @@ def evaluate_all(
         print(df.to_string())
         return df
 
+    if not models:
+        raise ValueError(
+            "evaluate_all() got an empty `models` dict — nothing to evaluate. "
+            "Check that DATA_DIR matches the folder models were trained/saved to "
+            "(load_models() silently returns {} for a wrong/missing path)."
+        )
+
     rows = []
     for name in MODEL_NAMES:
         if name not in models:

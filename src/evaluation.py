@@ -142,3 +142,55 @@ def confusion_grid(
         plt.savefig(save_path, dpi=150, bbox_inches='tight')
         print(f"Figure saved → {save_path}")
     plt.show()
+
+
+# ── error analysis (Phase 7 / Notebook §6) ────────────────────────────────────
+
+def per_attack_type_recall(
+    models: dict,
+    X: pd.DataFrame,
+    y_multiclass: pd.Series,
+    benign_label: str = NEG_LABEL,
+    pos_label: str = POS_LABEL,
+) -> pd.DataFrame:
+    """
+    Detection rate (recall) per original attack type, per model.
+
+    For each non-benign attack type, the recall is the fraction of that type's
+    flows predicted as ATTACK. Reveals which attack types "collapse" (near-zero
+    detection) even when the overall binary metrics look reasonable — binary
+    accuracy/F1 average this signal away.
+
+    Returns a DataFrame indexed by attack type, with a 'Support' column
+    (row count for that type) and one recall column per model.
+    """
+    types = sorted(t for t in y_multiclass.unique() if t != benign_label)
+    rows = []
+    for t in types:
+        mask = (y_multiclass == t).values
+        row = {'Attack Type': t, 'Support': int(mask.sum())}
+        for name, clf in models.items():
+            y_pred = clf.predict(X.loc[mask])
+            row[name] = round(float((y_pred == pos_label).mean()), 4)
+        rows.append(row)
+    return pd.DataFrame(rows).set_index('Attack Type')
+
+
+def false_negative_examples(
+    clf, X: pd.DataFrame, y_binary: pd.Series, n: int = 10,
+    benign_label: str = NEG_LABEL, pos_label: str = POS_LABEL,
+) -> tuple[pd.DataFrame, int]:
+    """Return (up to n missed-attack rows, total FN count) for one fitted classifier."""
+    y_pred = clf.predict(X)
+    fn_mask = (np.asarray(y_binary) == pos_label) & (y_pred == benign_label)
+    return X.loc[fn_mask].head(n), int(fn_mask.sum())
+
+
+def false_positive_examples(
+    clf, X: pd.DataFrame, y_binary: pd.Series, n: int = 10,
+    benign_label: str = NEG_LABEL, pos_label: str = POS_LABEL,
+) -> tuple[pd.DataFrame, int]:
+    """Return (up to n benign-flagged-as-attack rows, total FP count) for one fitted classifier."""
+    y_pred = clf.predict(X)
+    fp_mask = (np.asarray(y_binary) == benign_label) & (y_pred == pos_label)
+    return X.loc[fp_mask].head(n), int(fp_mask.sum())

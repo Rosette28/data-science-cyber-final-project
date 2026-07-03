@@ -1,6 +1,8 @@
 # ── Working notes and drafts — not for submission ───────────────────────────
 docs/
-reports/
+reports/*
+!reports/REPORT.md
+!reports/REPORT.pdf
 figures/
 
 # ── Data — never commit datasets ────────────────────────────────────────────

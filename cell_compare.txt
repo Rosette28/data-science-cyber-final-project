@@ -1,0 +1,267 @@
+OLD 0	markdown	# Network Intrusion Detection — Progressive Dataset Evaluation
+OLD 1	code	# ── Header cell: run this first in every new Colab session ──────────────────
+OLD 2	code	# ── Global configuration — only line you change between runs ─────────────────
+OLD 3	markdown	---
+OLD 4	code	from src.data_loading import load_cic2017, load_cic2018, align_schemas
+OLD 5	markdown	### Shape, dtypes, memory, and column name inspection
+OLD 6	code	# ── Shape and memory ──────────────────────────────────────────────────────────
+OLD 7	code	# ── Column name analysis ──────────────────────────────────────────────────────
+OLD 8	markdown	**Shape and memory** (after load + schema alignment, before deduplication):
+OLD 9	markdown	### Temporal structure and the progressive evaluation design
+OLD 10	code	import os, glob
+OLD 11	code	# ── Attack type label distribution in each dataset ───────────────────────────
+OLD 12	markdown	**Temporal structure — what time means in this project:**
+OLD 13	markdown	### Data hygiene scan
+OLD 14	code	# ── Duplicate rows ────────────────────────────────────────────────────────────
+OLD 15	code	# ── Constant / near-constant features (single unique value = useless) ─────────
+OLD 16	code	# ── Drop duplicates and constant features; log decisions ─────────────────────
+OLD 17	markdown	**Hygiene findings — cleaned shapes: 266,739 × 67 train, 106,906 × 67 test:**
+OLD 18	code	# ── Save cleaned frames to Drive ──────────────────────────────────────────────
+OLD 19	markdown	---
+OLD 20	code	# §2 setup — reload cleaned frames if needed, define FIGURES_DIR
+OLD 21	markdown	### §2.1 — Class Distribution and Imbalance Analysis
+OLD 22	code	def binary_counts(df):
+OLD 23	markdown	**Class distribution** *(Figure 1)*: 218,453 BENIGN vs 48,286 attack in train (**81.9% benign**); 89,937 vs 16,969 in test (**84.1% benign**). Both reflect typical enterprise network conditions.
+OLD 24	markdown	### §2.2 — Feature Distributions
+OLD 25	code	KEY_FEATURES = [
+OLD 26	markdown	**Feature distributions** *(Figure 2)*:
+OLD 27	markdown	### §2.3 — Missing Values Verification
+OLD 28	code	fig, axes = plt.subplots(1, 2, figsize=(13, 4))
+OLD 29	markdown	### §2.4 — Outlier Analysis
+OLD 30	code	print('Outlier rate (IQR method, >Q3 + 1.5*IQR) — train set:\n')
+OLD 31	markdown	**Outlier findings** *(Figure 4)*: IQR outlier rates of 5–20% per feature — expected, not a quality problem.
+OLD 32	markdown	### §2.5 — Temporal Feature Analysis
+OLD 33	code	TEMPORAL_FEATS = [f for f in
+OLD 34	markdown	**Temporal features by class** *(Figure 5)* — attack fingerprints align with known network behaviour:
+OLD 35	markdown	### §2.6 — Cross-tabulation and Group-by Analysis
+OLD 36	code	SUMMARY_FEATS = [f for f in
+OLD 37	markdown	**Bwd/Fwd packet ratio by class** — confirms known network-security patterns:
+OLD 38	markdown	### §2.7 — Correlation Analysis — Method Choice and Justification
+OLD 39	markdown	**Why Spearman (not Pearson or Kendall):**
+OLD 40	code	# Spearman on a 10k-row subsample — fast and representative
+OLD 41	code	# Spearman heatmap — top 30 highest-variance features, hierarchically clustered
+OLD 42	markdown	**Spearman correlation** *(Figure 6)*: 99 pairs with |r| > 0.90. Ten pairs are r = 1.000 (mathematically identical):
+OLD 43	markdown	### §2.8 — Pre- vs Post-Balancing: the 'Symmetry' Trade-off
+OLD 44	code	df_bin = df_train_clean.assign(
+OLD 45	markdown	**The real cost of 1:1 'symmetry'** *(Figure 7)*: keeping only 48,286 of 218,453 BENIGN rows means **170,167 rows discarded — 63.8% of all training data**. Only 36.2% is used.
+OLD 46	markdown	---
+OLD 47	code	# §3 setup — reload cleaned frames if needed; import preprocessing module
+OLD 48	markdown	### §3.1 — Cleaning Recap — mirroring the authors
+OLD 49	code	# §3.1 — Cleaning was performed in §1; document it here for the reproducibility record.
+OLD 50	markdown	**Cleaning decisions match the authors** for the core three steps (strip names, drop duplicate column,
+OLD 51	markdown	### §3.2 — Binary Relabelling
+OLD 52	code	# §3.2 — Collapse 15+ attack types → binary ATTACK / BENIGN.
+OLD 53	markdown	**Binary relabelling rationale:** The paper collapses all attack types to a single `malicious` label
+OLD 54	markdown	### §3.3 — Class Balancing (1:1) and Real-Prevalence Copy
+OLD 55	code	# §3.3 — Downsample BENIGN to 1:1; keep a real-prevalence copy for Phase 8.2.
+OLD 56	markdown	**Two copies kept deliberately:**
+OLD 57	markdown	### §3.4 — Categorical Encoding — Choice and Justification
+OLD 58	code	# §3.4 — Check for non-numeric feature columns; discuss Destination Port encoding.
+OLD 59	markdown	**Encoding decision: treat `Destination Port` as a continuous numeric integer (no encoding applied).**
+OLD 60	markdown	### §3.5 — Derived Features
+OLD 61	code	# §3.5 — Add four engineered flow features.
+OLD 62	markdown	**Derived feature stats from the actual run** (balanced train set, medians by class):
+OLD 63	markdown	### §3.6 — Feature Scaling
+OLD 64	code	# §3.6 — Fit StandardScaler on the balanced training set;
+OLD 65	markdown	**Scaling rationale:**
+OLD 66	markdown	### §3.7 — Feature Selection — RF Importance + Brute-Force Add-One
+OLD 67	code	# §3.7a — Stage 1: RF importance ranking on the balanced, scaled training set.
+OLD 68	code	# §3.7b — Feature importance bar chart (top 20)
+OLD 69	markdown	**RF importance results** *(Figure 8)* — actual top-20 from this run:
+OLD 70	code	# §3.7c — Stage 2: brute-force add-one-feature accuracy curve.
+OLD 71	code	# §3.7d — Accuracy vs. #features curve
+OLD 72	code	# §3.7e — Finalise the selected feature set.
+OLD 73	markdown	**Feature selection curve** *(Figure 9)* — reading the actual output:
+OLD 74	markdown	### §3.8 — Redundancy Analysis
+OLD 75	code	# §3.8 — Three complementary redundancy methods:
+OLD 76	code	# §3.8 — B: RF importance mass across redundancy clusters.
+OLD 77	code	# §3.8 — C: VIF for the final selected features
+OLD 78	markdown	**Redundancy analysis — three methods, surprising result:**
+OLD 79	markdown	### §3.9 — Save Preprocessed Artefacts to Drive
+OLD 80	code	# §3.9 — Persist all §3 outputs so Phase 5 (model training) can reload without re-running.
+OLD 81	markdown	**§3 complete.** Pipeline summary:
+OLD 82	markdown	---
+OLD 83	code	# §4 setup — reload §3 artefacts; import model factory
+OLD 84	markdown	### §4.1 — Model Configurations
+OLD 85	code	# §4.1 — confirm model factory output
+OLD 86	markdown	### §4.2 — Hyperparameter Optimisation (GridSearchCV, k=5)
+OLD 87	code	# §4.2 — GridSearchCV (resume-safe: skips models whose params are already saved)
+OLD 88	markdown	### §4.2 — Best Hyperparameters: Our Results vs. the Paper
+OLD 89	code	# Print side-by-side comparison with the paper
+OLD 90	markdown	**§4.2 — Actual results vs. paper: what the mismatches mean**
+OLD 91	markdown	### §4.3 — In-distribution Cross-validation (k=5)
+OLD 92	code	# §4.3 — k=5 cross-validation with best hyperparameters
+OLD 93	markdown	**Cross-validation interpretation:**
+OLD 94	code	# §4.4 — Train final models on full balanced training set; persist to Drive
+OLD 95	markdown	### §4 Complete — Summary
+OLD 96	markdown	---
+OLD 97	code	# §5 setup — reload trained models and all preprocessed artefacts
+OLD 98	markdown	### §5.1 — In-Distribution Baseline
+OLD 99	code	# §5.1 — load §4 k=5 CV results; fall back to documented values if file missing
+OLD 100	markdown	### §5.2 — Progressive Evaluation (CSE-CIC-IDS2018)
+OLD 101	code	# §5.2 — evaluate all models on the progressive test set (resume-safe)
+OLD 102	markdown	**Progressive evaluation interpretation — actual results:**
+OLD 103	markdown	### §5.3 — Confusion Matrices (Progressive Test Set)
+OLD 104	code	# §5.3 — confusion matrix grid on the progressive test set
+OLD 105	markdown	### §5.4 — Performance Drop: CV → Progressive Test
+OLD 106	code	# §5.4 — performance-drop table
+OLD 107	markdown	**Drop analysis interpretation — actual results:**
+OLD 108	markdown	### §5.5 — Reproduction Check vs. Paper (Tables 4–7)
+OLD 109	code	# §5.5 — reproduction check vs. paper Table 7 (progressive test)
+OLD 110	markdown	**Reproduction verdict:**
+OLD 111	markdown	### §5.5b — Apples-to-Apples: 1:1-Balanced Progressive Test
+OLD 112	code	# §5.5b — build a 1:1-balanced copy of the progressive test set (mirrors the paper's
+OLD 113	markdown	### §5.5c — Three-Way Comparison: Real-Prevalence vs. 1:1-Balanced (Ours) vs. Paper's Table 7
+OLD 114	code	# §5.5c -- three-way comparison table: our real-prevalence, our 1:1-balanced, paper's 1:1
+OLD 115	markdown	**Reading this table:** *(fill in after running in Colab.)*
+OLD 116	markdown	### §5.5d — Real-Prevalence vs. 1:1-Balanced Test Set: Pros and Cons
+OLD 117	markdown	### §5.6 — Metric Justification
+OLD 118	markdown	### §5 Complete — Summary
+OLD 119	markdown	---
+OLD 120	code	# §6.1 -- setup: reload models + test artefacts if needed, recover attack-type labels
+OLD 121	markdown	### §6.2 — Per-Attack-Type Detection Rate (Recall)
+OLD 122	code	# §6.2 -- recall per attack type, per model
+OLD 123	markdown	**Reading the heatmap — actual results:**
+OLD 124	markdown	### §6.3 — Sample False Negatives (Missed Attacks)
+OLD 125	code	# §6.3 -- sample FN flows for the single worst-recall attack type
+OLD 126	markdown	**Interpretation — actual results:**
+OLD 127	markdown	### §6.4 — False Positives (Benign Flows Misclassified as Attacks)
+OLD 128	code	# §6.4 -- FP counts for all 6 models + sample FP flows for the model with the most FPs
+OLD 129	markdown	**Interpretation — actual results:**
+OLD 130	markdown	### §6.5 — Cybersecurity Implications of FN vs. FP
+OLD 131	markdown	### §6.6 — FP/FN Trade-off and Threshold Considerations
+OLD 132	markdown	### §6 Complete — Summary
+OLD 133	markdown	---
+OLD 134	markdown	---
+OLD 135	markdown	---
+=====
+NEW 0	markdown	# Network Intrusion Detection — Progressive Dataset Evaluation
+NEW 1	code	# ── Header cell: run this first in every new Colab session ──────────────────
+NEW 2	code	# ── Global configuration — only line you change between runs ─────────────────
+NEW 3	markdown	---
+NEW 4	code	from src.data_loading import load_cic2017, load_cic2018, align_schemas
+NEW 5	markdown	### Shape, dtypes, memory, and column name inspection
+NEW 6	code	# ── Shape and memory ──────────────────────────────────────────────────────────
+NEW 7	code	# ── Column name analysis ──────────────────────────────────────────────────────
+NEW 8	markdown	**Shape and memory** (after load + schema alignment, before deduplication):
+NEW 9	markdown	### Temporal structure and the progressive evaluation design
+NEW 10	code	import os, glob
+NEW 11	code	# ── Attack type label distribution in each dataset ───────────────────────────
+NEW 12	markdown	**Temporal structure — what time means in this project:**
+NEW 13	markdown	### Data hygiene scan
+NEW 14	code	# ── Duplicate rows ────────────────────────────────────────────────────────────
+NEW 15	code	# ── Constant / near-constant features (single unique value = useless) ─────────
+NEW 16	code	# ── Drop duplicates and constant features; log decisions ─────────────────────
+NEW 17	markdown	**Hygiene findings — cleaned shapes: 266,739 × 67 train, 106,906 × 67 test:**
+NEW 18	code	# ── Save cleaned frames to Drive ──────────────────────────────────────────────
+NEW 19	markdown	---
+NEW 20	code	# §2 setup — reload cleaned frames if needed, define FIGURES_DIR
+NEW 21	markdown	### §2.1 — Class Distribution and Imbalance Analysis
+NEW 22	code	def binary_counts(df):
+NEW 23	markdown	**Class distribution** *(Figure 1)*: 218,453 BENIGN vs 48,286 attack in train (**81.9% benign**); 89,937 vs 16,969 in test (**84.1% benign**). Both reflect typical enterprise network conditions.
+NEW 24	markdown	### §2.2 — Feature Distributions
+NEW 25	code	KEY_FEATURES = [
+NEW 26	markdown	**Feature distributions** *(Figure 2)*:
+NEW 27	markdown	### §2.3 — Missing Values Verification
+NEW 28	code	fig, axes = plt.subplots(1, 2, figsize=(13, 4))
+NEW 29	markdown	### §2.4 — Outlier Analysis
+NEW 30	code	print('Outlier rate (IQR method, >Q3 + 1.5*IQR) — train set:\n')
+NEW 31	markdown	**Outlier findings** *(Figure 4)*: IQR outlier rates of 5–20% per feature — expected, not a quality problem.
+NEW 32	markdown	### §2.5 — Temporal Feature Analysis
+NEW 33	code	TEMPORAL_FEATS = [f for f in
+NEW 34	markdown	**Temporal features by class** *(Figure 5)* — attack fingerprints align with known network behaviour:
+NEW 35	markdown	### §2.6 — Cross-tabulation and Group-by Analysis
+NEW 36	code	SUMMARY_FEATS = [f for f in
+NEW 37	markdown	**Bwd/Fwd packet ratio by class** — confirms known network-security patterns:
+NEW 38	markdown	### §2.7 — Correlation Analysis — Method Choice and Justification
+NEW 39	markdown	**Why Spearman (not Pearson or Kendall):**
+NEW 40	code	# Spearman on a 10k-row subsample — fast and representative
+NEW 41	code	# Spearman heatmap — top 30 highest-variance features, hierarchically clustered
+NEW 42	markdown	**Spearman correlation** *(Figure 6)*: 99 pairs with |r| > 0.90. Ten pairs are r = 1.000 (mathematically identical):
+NEW 43	markdown	### §2.8 — Pre- vs Post-Balancing: the 'Symmetry' Trade-off
+NEW 44	code	df_bin = df_train_clean.assign(
+NEW 45	markdown	**The real cost of 1:1 'symmetry'** *(Figure 7)*: keeping only 48,286 of 218,453 BENIGN rows means **170,167 rows discarded — 63.8% of all training data**. Only 36.2% is used.
+NEW 46	markdown	---
+NEW 47	code	# §3 setup — reload cleaned frames if needed; import preprocessing module
+NEW 48	markdown	### §3.1 — Cleaning Recap — mirroring the authors
+NEW 49	code	# §3.1 — Cleaning was performed in §1; document it here for the reproducibility record.
+NEW 50	markdown	**Cleaning decisions match the authors** for the core three steps (strip names, drop duplicate column,
+NEW 51	markdown	### §3.2 — Binary Relabelling
+NEW 52	code	# §3.2 — Collapse 15+ attack types → binary ATTACK / BENIGN.
+NEW 53	markdown	**Binary relabelling rationale:** The paper collapses all attack types to a single `malicious` label
+NEW 54	markdown	### §3.3 — Class Balancing (1:1) and Real-Prevalence Copy
+NEW 55	code	# §3.3 — Downsample BENIGN to 1:1; keep a real-prevalence copy for Phase 8.2.
+NEW 56	markdown	**Two copies kept deliberately:**
+NEW 57	markdown	### §3.4 — Categorical Encoding — Choice and Justification
+NEW 58	code	# §3.4 — Check for non-numeric feature columns; discuss Destination Port encoding.
+NEW 59	markdown	**Encoding decision: treat `Destination Port` as a continuous numeric integer (no encoding applied).**
+NEW 60	markdown	### §3.5 — Derived Features
+NEW 61	code	# §3.5 — Add four engineered flow features.
+NEW 62	markdown	**Derived feature stats from the actual run** (balanced train set, medians by class):
+NEW 63	markdown	### §3.6 — Feature Scaling
+NEW 64	code	# §3.6 — Fit StandardScaler on the balanced training set;
+NEW 65	markdown	**Scaling rationale:**
+NEW 66	markdown	### §3.7 — Feature Selection — RF Importance + Brute-Force Add-One
+NEW 67	code	# §3.7a — Stage 1: RF importance ranking on the balanced, scaled training set.
+NEW 68	code	# §3.7b — Feature importance bar chart (top 20)
+NEW 69	markdown	**RF importance results** *(Figure 8)* — actual top-20 from this run:
+NEW 70	code	# §3.7c — Stage 2: brute-force add-one-feature accuracy curve.
+NEW 71	code	# §3.7d — Accuracy vs. #features curve
+NEW 72	code	# §3.7e — Finalise the selected feature set.
+NEW 73	markdown	**Feature selection curve** *(Figure 9)* — reading the actual output:
+NEW 74	markdown	### §3.8 — Redundancy Analysis
+NEW 75	code	# §3.8 — Three complementary redundancy methods:
+NEW 76	code	# §3.8 — B: RF importance mass across redundancy clusters.
+NEW 77	code	# §3.8 — C: VIF for the final selected features
+NEW 78	markdown	**Redundancy analysis — three methods, surprising result:**
+NEW 79	markdown	### §3.9 — Save Preprocessed Artefacts to Drive
+NEW 80	code	# §3.9 — Persist all §3 outputs so Phase 5 (model training) can reload without re-running.
+NEW 81	markdown	**§3 complete.** Pipeline summary:
+NEW 82	markdown	---
+NEW 83	code	# §4 setup — reload §3 artefacts; import model factory
+NEW 84	markdown	### §4.1 — Model Configurations
+NEW 85	code	# §4.1 — confirm model factory output
+NEW 86	markdown	### §4.2 — Hyperparameter Optimisation (GridSearchCV, k=5)
+NEW 87	code	# §4.2 — GridSearchCV (resume-safe: skips models whose params are already saved)
+NEW 88	markdown	### §4.2 — Best Hyperparameters: Our Results vs. the Paper
+NEW 89	code	# Print side-by-side comparison with the paper
+NEW 90	markdown	**§4.2 — Actual results vs. paper: what the mismatches mean**
+NEW 91	markdown	### §4.3 — In-distribution Cross-validation (k=5)
+NEW 92	code	# §4.3 — k=5 cross-validation with best hyperparameters
+NEW 93	markdown	**Cross-validation interpretation:**
+NEW 94	code	# §4.4 — Train final models on full balanced training set; persist to Drive
+NEW 95	markdown	### §4 Complete — Summary
+NEW 96	markdown	---
+NEW 97	code	# §5 setup — reload trained models and all preprocessed artefacts
+NEW 98	markdown	### §5.1 — In-Distribution Baseline
+NEW 99	code	# §5.1 — load §4 k=5 CV results; fall back to documented values if file missing
+NEW 100	markdown	### §5.2 — Progressive Evaluation (CSE-CIC-IDS2018)
+NEW 101	code	# §5.2 — evaluate all models on the progressive test set (resume-safe)
+NEW 102	markdown	**Progressive evaluation interpretation:**
+NEW 103	markdown	### §5.3 — Confusion Matrices (Progressive Test Set)
+NEW 104	code	# §5.3 — confusion matrix grid on the progressive test set
+NEW 105	markdown	### §5.4 — Performance Drop: CV → Progressive Test
+NEW 106	code	# §5.4 — performance-drop table
+NEW 107	markdown	**Drop analysis interpretation:**
+NEW 108	markdown	### §5.5 — Reproduction Check vs. Paper (Tables 4–7)
+NEW 109	code	# §5.5 — reproduction check vs. paper Table 7 (progressive test)
+NEW 110	markdown	**Reproduction verdict:**
+NEW 111	markdown	### §5.6 — Metric Justification
+NEW 112	markdown	### §5 Complete — Summary
+NEW 113	markdown	---
+NEW 114	code	# §6.1 -- setup: reload models + test artefacts if needed, recover attack-type labels
+NEW 115	markdown	### §6.2 — Per-Attack-Type Detection Rate (Recall)
+NEW 116	code	# §6.2 -- recall per attack type, per model
+NEW 117	markdown	**Reading the heatmap:** *(fill in with the actual pattern from your run — e.g. which
+NEW 118	markdown	### §6.3 — Sample False Negatives (Missed Attacks)
+NEW 119	code	# §6.3 -- sample FN flows for the single worst-recall attack type
+NEW 120	markdown	**Interpretation:** *(fill in after inspecting the sample rows above — do the missed flows'
+NEW 121	markdown	### §6.4 — False Positives (Benign Flows Misclassified as Attacks)
+NEW 122	code	# §6.4 -- FP counts for all 6 models + sample FP flows for the model with the most FPs
+NEW 123	markdown	**Interpretation:** *(fill in — which model produces the most false alarms on the 2018 set?
+NEW 124	markdown	### §6.5 — Cybersecurity Implications of FN vs. FP
+NEW 125	markdown	### §6.6 — FP/FN Trade-off and Threshold Considerations
+NEW 126	markdown	### §6 Complete — Summary
+NEW 127	markdown	---
+NEW 128	markdown	---
+NEW 129	markdown	---

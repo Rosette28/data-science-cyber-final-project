@@ -1,0 +1,130 @@
+0	MD	# Network Intrusion Detection — Progressive Dataset Evaluation
+1	CODE	# ── Header cell: run this first in every new Colab session ──────────────────
+2	CODE	# ── Global configuration — only line you change between runs ─────────────────
+3	MD	---
+4	CODE	from src.data_loading import load_cic2017, load_cic2018, align_schemas
+5	MD	### Shape, dtypes, memory, and column name inspection
+6	CODE	# ── Shape and memory ──────────────────────────────────────────────────────────
+7	CODE	# ── Column name analysis ──────────────────────────────────────────────────────
+8	MD	**Shape and memory** (after load + schema alignment, before deduplication):
+9	MD	### Temporal structure and the progressive evaluation design
+10	CODE	import os, glob
+11	CODE	# ── Attack type label distribution in each dataset ───────────────────────────
+12	MD	**Temporal structure — what time means in this project:**
+13	MD	### Data hygiene scan
+14	CODE	# ── Duplicate rows ────────────────────────────────────────────────────────────
+15	CODE	# ── Constant / near-constant features (single unique value = useless) ─────────
+16	CODE	# ── Drop duplicates and constant features; log decisions ─────────────────────
+17	MD	**Hygiene findings — cleaned shapes: 266,739 × 67 train, 106,906 × 67 test:**
+18	CODE	# ── Save cleaned frames to Drive ──────────────────────────────────────────────
+19	MD	---
+20	CODE	# §2 setup — reload cleaned frames if needed, define FIGURES_DIR
+21	MD	### §2.1 — Class Distribution and Imbalance Analysis
+22	CODE	def binary_counts(df):
+23	MD	**Class distribution** *(Figure 1)*: 218,453 BENIGN vs 48,286 attack in train (**81.9% benign**); 89,937 vs 16,969 in test (**84.1% benign**). Both reflect typical enterprise network conditions.
+24	MD	### §2.2 — Feature Distributions
+25	CODE	KEY_FEATURES = [
+26	MD	**Feature distributions** *(Figure 2)*:
+27	MD	### §2.3 — Missing Values Verification
+28	CODE	fig, axes = plt.subplots(1, 2, figsize=(13, 4))
+29	MD	### §2.4 — Outlier Analysis
+30	CODE	print('Outlier rate (IQR method, >Q3 + 1.5*IQR) — train set:\n')
+31	MD	**Outlier findings** *(Figure 4)*: IQR outlier rates of 5–20% per feature — expected, not a quality problem.
+32	MD	### §2.5 — Temporal Feature Analysis
+33	CODE	TEMPORAL_FEATS = [f for f in
+34	MD	**Temporal features by class** *(Figure 5)* — attack fingerprints align with known network behaviour:
+35	MD	### §2.6 — Cross-tabulation and Group-by Analysis
+36	CODE	SUMMARY_FEATS = [f for f in
+37	MD	**Bwd/Fwd packet ratio by class** — confirms known network-security patterns:
+38	MD	### §2.7 — Correlation Analysis — Method Choice and Justification
+39	MD	**Why Spearman (not Pearson or Kendall):**
+40	CODE	# Spearman on a 10k-row subsample — fast and representative
+41	CODE	# Spearman heatmap — top 30 highest-variance features, hierarchically clustered
+42	MD	**Spearman correlation** *(Figure 6)*: 99 pairs with |r| > 0.90. Ten pairs are r = 1.000 (mathematically identical):
+43	MD	### §2.8 — Pre- vs Post-Balancing: the 'Symmetry' Trade-off
+44	CODE	df_bin = df_train_clean.assign(
+45	MD	**The real cost of 1:1 'symmetry'** *(Figure 7)*: keeping only 48,286 of 218,453 BENIGN rows means **170,167 rows discarded — 63.8% of all training data**. Only 36.2% is used.
+46	MD	---
+47	CODE	# §3 setup — reload cleaned frames if needed; import preprocessing module
+48	MD	### §3.1 — Cleaning Recap — mirroring the authors
+49	CODE	# §3.1 — Cleaning was performed in §1; document it here for the reproducibility record.
+50	MD	**Cleaning decisions match the authors** for the core three steps (strip names, drop duplicate column,
+51	MD	### §3.2 — Binary Relabelling
+52	CODE	# §3.2 — Collapse 15+ attack types → binary ATTACK / BENIGN.
+53	MD	**Binary relabelling rationale:** The paper collapses all attack types to a single `malicious` label
+54	MD	### §3.3 — Class Balancing (1:1) and Real-Prevalence Copy
+55	CODE	# §3.3 — Downsample BENIGN to 1:1; keep a real-prevalence copy for Phase 8.2.
+56	MD	**Two copies kept deliberately:**
+57	MD	### §3.4 — Categorical Encoding — Choice and Justification
+58	CODE	# §3.4 — Check for non-numeric feature columns; discuss Destination Port encoding.
+59	MD	**Encoding decision: treat `Destination Port` as a continuous numeric integer (no encoding applied).**
+60	MD	### §3.5 — Derived Features
+61	CODE	# §3.5 — Add four engineered flow features.
+62	MD	**Derived feature stats from the actual run** (balanced train set, medians by class):
+63	MD	### §3.6 — Feature Scaling
+64	CODE	# §3.6 — Fit StandardScaler on the balanced training set;
+65	MD	**Scaling rationale:**
+66	MD	### §3.7 — Feature Selection — RF Importance + Brute-Force Add-One
+67	CODE	# §3.7a — Stage 1: RF importance ranking on the balanced, scaled training set.
+68	CODE	# §3.7b — Feature importance bar chart (top 20)
+69	MD	**RF importance results** *(Figure 8)* — actual top-20 from this run:
+70	CODE	# §3.7c — Stage 2: brute-force add-one-feature accuracy curve.
+71	CODE	# §3.7d — Accuracy vs. #features curve
+72	CODE	# §3.7e — Finalise the selected feature set.
+73	MD	**Feature selection curve** *(Figure 9)* — reading the actual output:
+74	MD	### §3.8 — Redundancy Analysis
+75	CODE	# §3.8 — Three complementary redundancy methods:
+76	CODE	# §3.8 — B: RF importance mass across redundancy clusters.
+77	CODE	# §3.8 — C: VIF for the final selected features
+78	MD	**Redundancy analysis — three methods, surprising result:**
+79	MD	### §3.9 — Save Preprocessed Artefacts to Drive
+80	CODE	# §3.9 — Persist all §3 outputs so Phase 5 (model training) can reload without re-running.
+81	MD	**§3 complete.** Pipeline summary:
+82	MD	---
+83	CODE	# §4 setup — reload §3 artefacts; import model factory
+84	MD	### §4.1 — Model Configurations
+85	CODE	# §4.1 — confirm model factory output
+86	MD	### §4.2 — Hyperparameter Optimisation (GridSearchCV, k=5)
+87	CODE	# §4.2 — GridSearchCV (resume-safe: skips models whose params are already saved)
+88	MD	### §4.2 — Best Hyperparameters: Our Results vs. the Paper
+89	CODE	# Print side-by-side comparison with the paper
+90	MD	**§4.2 — Actual results vs. paper: what the mismatches mean**
+91	MD	### §4.3 — In-distribution Cross-validation (k=5)
+92	CODE	# §4.3 — k=5 cross-validation with best hyperparameters
+93	MD	**Cross-validation interpretation:**
+94	CODE	# §4.4 — Train final models on full balanced training set; persist to Drive
+95	MD	### §4 Complete — Summary
+96	MD	---
+97	CODE	# §5 setup — reload trained models and all preprocessed artefacts
+98	MD	### §5.1 — In-Distribution Baseline
+99	CODE	# §5.1 — load §4 k=5 CV results; fall back to documented values if file missing
+100	MD	### §5.2 — Progressive Evaluation (CSE-CIC-IDS2018)
+101	CODE	# §5.2 — evaluate all models on the progressive test set (resume-safe)
+102	MD	**Progressive evaluation interpretation:**
+103	MD	### §5.3 — Confusion Matrices (Progressive Test Set)
+104	CODE	# §5.3 — confusion matrix grid on the progressive test set
+105	MD	### §5.4 — Performance Drop: CV → Progressive Test
+106	CODE	# §5.4 — performance-drop table
+107	MD	**Drop analysis interpretation:**
+108	MD	### §5.5 — Reproduction Check vs. Paper (Tables 4–7)
+109	CODE	# §5.5 — reproduction check vs. paper Table 7 (progressive test)
+110	MD	**Reproduction verdict:**
+111	MD	### §5.6 — Metric Justification
+112	MD	### §5 Complete — Summary
+113	MD	---
+114	CODE	# §6.1 -- setup: reload models + test artefacts if needed, recover attack-type labels
+115	MD	### §6.2 — Per-Attack-Type Detection Rate (Recall)
+116	CODE	# §6.2 -- recall per attack type, per model
+117	MD	**Reading the heatmap:** *(fill in with the actual pattern from your run — e.g. which
+118	MD	### §6.3 — Sample False Negatives (Missed Attacks)
+119	CODE	# §6.3 -- sample FN flows for the single worst-recall attack type
+120	MD	**Interpretation:** *(fill in after inspecting the sample rows above — do the missed flows'
+121	MD	### §6.4 — False Positives (Benign Flows Misclassified as Attacks)
+122	CODE	# §6.4 -- FP counts for all 6 models + sample FP flows for the model with the most FPs
+123	MD	**Interpretation:** *(fill in — which model produces the most false alarms on the 2018 set?
+124	MD	### §6.5 — Cybersecurity Implications of FN vs. FP
+125	MD	### §6.6 — FP/FN Trade-off and Threshold Considerations
+126	MD	### §6 Complete — Summary
+127	MD	---
+128	MD	---
+129	MD	---
